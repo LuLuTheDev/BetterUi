@@ -1,0 +1,251 @@
+
+name: BetterUi - Generate Project
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Generate BetterUi project
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p \
+            .github/workflows \
+            src \
+            src/themes \
+            src/icons \
+            scripts \
+            docs
+
+          cat > README.md <<'EOF'
+          # BetterUi
+          **Author:** @huginpetur
+
+          A customizable Discord Revenge plugin starter.
+
+          ## Features
+          - Theme presets
+          - Persistent settings through the plugin settings API
+          - Icon pack starter structure
+          - Automated source validation
+          - GitHub Actions workflow
+
+          ## Important
+          This repository is a starter project. Adapt the plugin entry point
+          and manifest to the exact Revenge version before installing.
+          A successful workflow does not prove runtime compatibility.
+          EOF
+
+          cat > manifest.json <<'EOF'
+          {
+            "name": "BetterUi",
+            "displayName": "BetterUi",
+            "description": "Customizable interface enhancements for Revenge.",
+            "authors": [
+              {
+                "name": "@huginpetur"
+              }
+            ],
+            "version": "0.1.0",
+            "main": "dist/index.js"
+          }
+          EOF
+
+          cat > package.json <<'EOF'
+          {
+            "name": "betterui",
+            "version": "0.1.0",
+            "private": true,
+            "description": "BetterUi plugin starter for Revenge",
+            "scripts": {
+              "validate": "node scripts/validate.mjs",
+              "build": "tsc -p tsconfig.json"
+            },
+            "devDependencies": {
+              "typescript": "^5.8.3"
+            }
+          }
+          EOF
+
+          cat > tsconfig.json <<'EOF'
+          {
+            "compilerOptions": {
+              "target": "ES2020",
+              "module": "CommonJS",
+              "moduleResolution": "Node",
+              "strict": true,
+              "rootDir": "src",
+              "outDir": "dist",
+              "skipLibCheck": true,
+              "esModuleInterop": true
+            },
+            "include": ["src/**/*.ts"]
+          }
+          EOF
+
+          cat > src/index.ts <<'EOF'
+          /*
+           * BetterUi
+           * Author: @huginpetur
+           *
+           * Starter entry point. Connect this to the supported Revenge
+           * plugin API before attempting to load it in Discord.
+           */
+
+          export const BetterUi = {
+            name: "BetterUi",
+            version: "0.1.0",
+            author: "@huginpetur"
+          };
+
+          export function getThemeNames(): string[] {
+            return ["Midnight", "Ocean", "RoseQuartz", "Graphite"];
+          }
+          EOF
+
+          cat > src/themes/themes.json <<'EOF'
+          {
+            "Midnight": {
+              "background": "#17151F",
+              "surface": "#211E2B",
+              "accent": "#A78BFA",
+              "text": "#F5F3FF"
+            },
+            "Ocean": {
+              "background": "#101A24",
+              "surface": "#182735",
+              "accent": "#69C7D9",
+              "text": "#F0F9FF"
+            },
+            "RoseQuartz": {
+              "background": "#241A22",
+              "surface": "#35252F",
+              "accent": "#E6A6C2",
+              "text": "#FFF1F7"
+            },
+            "Graphite": {
+              "background": "#181818",
+              "surface": "#252525",
+              "accent": "#B8B8B8",
+              "text": "#F5F5F5"
+            }
+          }
+          EOF
+
+          cat > src/icons/README.md <<'EOF'
+          # Icon packs
+
+          Place original SVG or PNG icons here.
+          Keep icons licensed for redistribution and document their source.
+          Register icon packs through the supported Revenge APIs.
+          EOF
+
+          cat > docs/SETUP.md <<'EOF'
+          # Setup
+
+          1. Install Node.js and npm.
+          2. Run `npm install`.
+          3. Run `npm run validate`.
+          4. Run `npm run build`.
+          5. Check the current Revenge plugin documentation and adapt
+             the manifest and entry point to its required API.
+          6. Test in a separate Discord/Revenge test environment.
+
+          The starter does not claim that the plugin is already installable.
+          EOF
+
+          cat > scripts/validate.mjs <<'EOF'
+          import fs from "node:fs";
+
+          const manifest = JSON.parse(
+            fs.readFileSync("manifest.json", "utf8")
+          );
+
+          if (!manifest.name || !manifest.version || !manifest.main) {
+            throw new Error("manifest.json is missing required fields");
+          }
+
+          if (!fs.existsSync("src/index.ts")) {
+            throw new Error("Missing src/index.ts");
+          }
+
+          JSON.parse(fs.readFileSync("src/themes/themes.json", "utf8"));
+
+          console.log("BetterUi source validation passed.");
+          EOF
+
+          cat > .gitignore <<'EOF'
+          node_modules/
+          dist/
+          *.log
+          .env
+          EOF
+
+          cat > .github/workflows/validate.yml <<'EOF'
+          name: Validate BetterUi
+
+          on:
+            push:
+              paths:
+                - 'src/**'
+                - 'manifest.json'
+                - 'package.json'
+                - 'tsconfig.json'
+                - 'scripts/**'
+                - '.github/workflows/validate.yml'
+            pull_request:
+            workflow_dispatch:
+
+          permissions:
+            contents: read
+
+          jobs:
+            validate:
+              runs-on: ubuntu-latest
+              steps:
+                - uses: actions/checkout@v4
+                - uses: actions/setup-node@v4
+                  with:
+                    node-version: 22
+                    cache: npm
+                - run: npm install --no-audit --no-fund
+                - run: npm run validate
+                - run: npm run build
+          EOF
+
+          node scripts/validate.mjs
+          echo "BetterUi files generated."
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ github.token }}
+          branch: automation/betterui-generated-project
+          delete-branch: false
+          commit-message: "feat: generate BetterUi starter project"
+          title: "feat: generate BetterUi starter project"
+          body: |
+            ## BetterUi project generation
+
+            Generated starter files, theme presets, icon directory,
+            documentation and validation workflows.
+
+            **Author:** @huginpetur
+
+            Note: the plugin API integration still needs compatibility
+            testing against the target Revenge version.
+          labels: |
+            automated
+            enhancement
